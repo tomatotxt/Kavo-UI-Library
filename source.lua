@@ -1,5 +1,5 @@
 --// Optimized Event-Driven Rewrite of Kavo UI
---// Optimizations: Eradicated all while wait() loops, abstracted redundant WET code (Ripple, Tooltips, Hovers), added Event-Driven theming, and clamped color math to prevent errors.
+--// Fix: Replaced .ChildAdded with proper GetPropertyChangedSignal for flawless Scrollbar and Canvas sizing.
 
 local Kavo = {}
 
@@ -346,12 +346,13 @@ function Kavo.CreateLib(kavName, themeList)
         pageListing.SortOrder = Enum.SortOrder.LayoutOrder
         pageListing.Padding = UDim.new(0, 5)
 
+        -- BUG FIX: Using GetPropertyChangedSignal dynamically detects layout changes and updates the Scrollable Canvas
         local function UpdateSize()
             local cS = pageListing.AbsoluteContentSize
             Utility:TweenObject(page, {CanvasSize = UDim2.new(0, cS.X, 0, cS.Y)}, 0.15)
         end
-        page.ChildAdded:Connect(UpdateSize)
-        page.ChildRemoved:Connect(UpdateSize)
+        pageListing:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
+        UpdateSize() -- Initialize Size
 
         if first then
             first = false
@@ -411,12 +412,15 @@ function Kavo.CreateLib(kavName, themeList)
             sectionElListing.SortOrder = Enum.SortOrder.LayoutOrder
             sectionElListing.Padding = UDim.new(0, 3)
 
+            -- BUG FIX: Bubble layout sizes up properly using Event listeners instead of loops
             local function updateSectionFrame()
                 sectionInners.Size = UDim2.new(1, 0, 0, sectionElListing.AbsoluteContentSize.Y)
                 sectionFrame.Size = UDim2.new(0, 352, 0, sectionlistoknvm.AbsoluteContentSize.Y)
             end
 
-            sectionInners.ChildAdded:Connect(function() updateSectionFrame() UpdateSize() end)
+            sectionElListing:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSectionFrame)
+            sectionlistoknvm:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSectionFrame)
+            updateSectionFrame()
             
             local Elements = {}
 
