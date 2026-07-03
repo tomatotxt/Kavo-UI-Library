@@ -1,5 +1,5 @@
 --// Optimized Event-Driven Rewrite of Kavo UI
---// Fix: Replaced .ChildAdded with proper GetPropertyChangedSignal for flawless Scrollbar and Canvas sizing.
+--// Fixes & Features: Event-Driven Sizing, Touch-Screen Dragging, Minimize Button, Draggable Floating Restore Icon.
 
 local Kavo = {}
 
@@ -12,13 +12,14 @@ local players = game:GetService("Players")
 local Utility = {}
 local Objects = {}
 
+-- UPDATED: Added Touch compatibility for Mobile users
 function Kavo:DraggingEnabled(frame, parent)
     parent = parent or frame
     local dragging = false
     local dragInput, mousePos, framePos
 
     frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             mousePos = input.Position
             framePos = parent.Position
@@ -32,7 +33,7 @@ function Kavo:DraggingEnabled(frame, parent)
     end)
 
     frame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end)
@@ -220,9 +221,9 @@ function Kavo.CreateLib(kavName, themeList)
     title.Font = Enum.Font.Gotham
     title.RichText = true
     title.Text = kavName
-    title.TextColor3 = Color3.fromRGB(245, 245, 245)
     title.TextSize = 16.000
     title.TextXAlignment = Enum.TextXAlignment.Left
+    RegisterTheme(title, "TextColor3", "TextColor")
 
     local close = Instance.new("ImageButton", MainHeader)
     close.BackgroundTransparency = 1.000
@@ -237,6 +238,69 @@ function Kavo.CreateLib(kavName, themeList)
         Utility:TweenObject(Main, {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0, Main.AbsolutePosition.X + (Main.AbsoluteSize.X / 2), 0, Main.AbsolutePosition.Y + (Main.AbsoluteSize.Y / 2))}, 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         task.wait(1)
         ScreenGui:Destroy()
+    end)
+
+    -- NEW: Minimize Button
+    local minimize = Instance.new("TextButton", MainHeader)
+    minimize.BackgroundTransparency = 1.000
+    minimize.Position = UDim2.new(0.89, 0, 0.138, 0)
+    minimize.Size = UDim2.new(0, 21, 0, 21)
+    minimize.ZIndex = 2
+    minimize.Font = Enum.Font.Gotham
+    minimize.Text = "-"
+    minimize.TextSize = 24.000
+    RegisterTheme(minimize, "TextColor3", "TextColor")
+
+    -- NEW: Floating Toggle (Restores minimized UI)
+    local floatingToggle = Instance.new("ImageButton", ScreenGui)
+    floatingToggle.Name = "FloatingToggle"
+    floatingToggle.Size = UDim2.new(0, 45, 0, 45)
+    floatingToggle.Position = UDim2.new(0, 20, 0.5, -22)
+    floatingToggle.Visible = false
+    floatingToggle.ZIndex = 999
+    RegisterTheme(floatingToggle, "BackgroundColor3", "Header")
+    Instance.new("UICorner", floatingToggle).CornerRadius = UDim.new(1, 0)
+
+    local floatIcon = Instance.new("ImageLabel", floatingToggle)
+    floatIcon.BackgroundTransparency = 1
+    floatIcon.Size = UDim2.new(0, 25, 0, 25)
+    floatIcon.Position = UDim2.new(0.5, -12.5, 0.5, -12.5)
+    floatIcon.Image = "rbxassetid://3926305904"
+    floatIcon.ImageRectOffset = Vector2.new(84, 204)
+    RegisterTheme(floatIcon, "ImageColor3", "SchemeColor")
+    
+    Kavo:DraggingEnabled(floatingToggle, floatingToggle)
+
+    -- Toggle Logic
+    local savedPos = UDim2.new(0.336, 0, 0.275, 0)
+
+    minimize.MouseButton1Click:Connect(function()
+        savedPos = Main.Position
+        Utility:TweenObject(Main, {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0, Main.AbsolutePosition.X + (Main.AbsoluteSize.X / 2), 0, Main.AbsolutePosition.Y + (Main.AbsoluteSize.Y / 2))}, 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        task.wait(0.2)
+        Main.Visible = false
+        floatingToggle.Visible = true
+    end)
+
+    -- Click vs Drag check for the floating button
+    local startPos
+    floatingToggle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            startPos = input.Position
+        end
+    end)
+    floatingToggle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if startPos then
+                local endPos = input.Position
+                -- Magnitude check ensures dragging doesn't trigger a click
+                if (startPos - endPos).Magnitude < 10 then 
+                    floatingToggle.Visible = false
+                    Main.Visible = true
+                    Utility:TweenObject(Main, {Size = UDim2.new(0, 525, 0, 318), Position = savedPos}, 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                end
+            end
+        end
     end)
 
     local MainSide = Instance.new("Frame", Main)
@@ -346,13 +410,12 @@ function Kavo.CreateLib(kavName, themeList)
         pageListing.SortOrder = Enum.SortOrder.LayoutOrder
         pageListing.Padding = UDim.new(0, 5)
 
-        -- BUG FIX: Using GetPropertyChangedSignal dynamically detects layout changes and updates the Scrollable Canvas
         local function UpdateSize()
             local cS = pageListing.AbsoluteContentSize
             Utility:TweenObject(page, {CanvasSize = UDim2.new(0, cS.X, 0, cS.Y)}, 0.15)
         end
         pageListing:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
-        UpdateSize() -- Initialize Size
+        UpdateSize()
 
         if first then
             first = false
@@ -412,7 +475,6 @@ function Kavo.CreateLib(kavName, themeList)
             sectionElListing.SortOrder = Enum.SortOrder.LayoutOrder
             sectionElListing.Padding = UDim.new(0, 3)
 
-            -- BUG FIX: Bubble layout sizes up properly using Event listeners instead of loops
             local function updateSectionFrame()
                 sectionInners.Size = UDim2.new(1, 0, 0, sectionElListing.AbsoluteContentSize.Y)
                 sectionFrame.Size = UDim2.new(0, 352, 0, sectionlistoknvm.AbsoluteContentSize.Y)
