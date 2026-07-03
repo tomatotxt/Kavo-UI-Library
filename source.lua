@@ -1,5 +1,5 @@
 --// Optimized Event-Driven Rewrite of Kavo UI
---// Fixes & Features: Event-Driven Sizing, Touch-Screen Dragging, Minimize Button, Draggable Floating Restore Icon.
+--// Fixes & Features: Event-Driven Sizing, Touch-Screen Dragging, Minimize Button replaces Close, Draggable 3-Dot Floating Icon.
 
 local Kavo = {}
 
@@ -12,7 +12,7 @@ local players = game:GetService("Players")
 local Utility = {}
 local Objects = {}
 
--- UPDATED: Added Touch compatibility for Mobile users
+-- Touch compatibility for Mobile users
 function Kavo:DraggingEnabled(frame, parent)
     parent = parent or frame
     local dragging = false
@@ -225,25 +225,10 @@ function Kavo.CreateLib(kavName, themeList)
     title.TextXAlignment = Enum.TextXAlignment.Left
     RegisterTheme(title, "TextColor3", "TextColor")
 
-    local close = Instance.new("ImageButton", MainHeader)
-    close.BackgroundTransparency = 1.000
-    close.Position = UDim2.new(0.95, 0, 0.138, 0)
-    close.Size = UDim2.new(0, 21, 0, 21)
-    close.ZIndex = 2
-    close.Image = "rbxassetid://3926305904"
-    close.ImageRectOffset = Vector2.new(284, 4)
-    close.ImageRectSize = Vector2.new(24, 24)
-    close.MouseButton1Click:Connect(function()
-        Utility:TweenObject(close, {ImageTransparency = 1}, 0.1)
-        Utility:TweenObject(Main, {Size = UDim2.new(0,0,0,0), Position = UDim2.new(0, Main.AbsolutePosition.X + (Main.AbsoluteSize.X / 2), 0, Main.AbsolutePosition.Y + (Main.AbsoluteSize.Y / 2))}, 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        task.wait(1)
-        ScreenGui:Destroy()
-    end)
-
-    -- NEW: Minimize Button
+    -- NEW: Minimize Button (Replacing Close)
     local minimize = Instance.new("TextButton", MainHeader)
     minimize.BackgroundTransparency = 1.000
-    minimize.Position = UDim2.new(0.89, 0, 0.138, 0)
+    minimize.Position = UDim2.new(0.95, 0, 0.138, 0)
     minimize.Size = UDim2.new(0, 21, 0, 21)
     minimize.ZIndex = 2
     minimize.Font = Enum.Font.Gotham
@@ -251,8 +236,8 @@ function Kavo.CreateLib(kavName, themeList)
     minimize.TextSize = 24.000
     RegisterTheme(minimize, "TextColor3", "TextColor")
 
-    -- NEW: Floating Toggle (Restores minimized UI)
-    local floatingToggle = Instance.new("ImageButton", ScreenGui)
+    -- NEW: Floating Toggle Frame (Restores minimized UI)
+    local floatingToggle = Instance.new("Frame", ScreenGui)
     floatingToggle.Name = "FloatingToggle"
     floatingToggle.Size = UDim2.new(0, 45, 0, 45)
     floatingToggle.Position = UDim2.new(0, 20, 0.5, -22)
@@ -260,18 +245,23 @@ function Kavo.CreateLib(kavName, themeList)
     floatingToggle.ZIndex = 999
     RegisterTheme(floatingToggle, "BackgroundColor3", "Header")
     Instance.new("UICorner", floatingToggle).CornerRadius = UDim.new(1, 0)
-
-    local floatIcon = Instance.new("ImageLabel", floatingToggle)
-    floatIcon.BackgroundTransparency = 1
-    floatIcon.Size = UDim2.new(0, 25, 0, 25)
-    floatIcon.Position = UDim2.new(0.5, -12.5, 0.5, -12.5)
-    floatIcon.Image = "rbxassetid://3926305904"
-    floatIcon.ImageRectOffset = Vector2.new(84, 204)
-    RegisterTheme(floatIcon, "ImageColor3", "SchemeColor")
     
+    -- Procedurally Generated 3-Dot (Kebab) Icon
+    local dotLayout = Instance.new("UIListLayout", floatingToggle)
+    dotLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    dotLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    dotLayout.Padding = UDim.new(0, 4)
+
+    for i = 1, 3 do
+        local dot = Instance.new("Frame", floatingToggle)
+        dot.Size = UDim2.new(0, 5, 0, 5)
+        Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+        RegisterTheme(dot, "BackgroundColor3", "SchemeColor")
+    end
+
     Kavo:DraggingEnabled(floatingToggle, floatingToggle)
 
-    -- Toggle Logic
+    -- Toggle Minimize/Restore Logic
     local savedPos = UDim2.new(0.336, 0, 0.275, 0)
 
     minimize.MouseButton1Click:Connect(function()
@@ -289,6 +279,7 @@ function Kavo.CreateLib(kavName, themeList)
             startPos = input.Position
         end
     end)
+    
     floatingToggle.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             if startPos then
